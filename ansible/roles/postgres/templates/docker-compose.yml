@@ -1,0 +1,64 @@
+name: testsight-host
+
+services:
+  postgres:
+    image: "{{ postgres_image }}"
+    container_name: testsight-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      # Lets `docker compose exec ... psql/pg_dump` authenticate over the local
+      # socket while pg_hba keeps scram-sha-256 for every connection.
+      PGPASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - listen_addresses=*
+    volumes:
+      - testsight-postgres-data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    ports:
+      - "{{ testsight_host_ip }}:5432:5432"
+    networks:
+      - testsight-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  pgadmin:
+    image: "{{ pgadmin_image }}"
+    container_name: testsight-pgadmin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_EMAIL:?PGADMIN_EMAIL is required}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_PASSWORD:?PGADMIN_PASSWORD is required}"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - testsight-pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "{{ testsight_host_ip }}:5050:80"
+    networks:
+      - testsight-db
+
+networks:
+  testsight-db:
+    ipam:
+      config:
+        - subnet: "{{ pgadmin_network_cidr }}"
+
+volumes:
+  testsight-postgres-data:
+  testsight-pgadmin-data:

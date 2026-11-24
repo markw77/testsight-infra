@@ -1,0 +1,15 @@
+[Unit]
+Description=testsight Postgres backup
+Documentation=file:{{ host_postgres_dir }}/README.md
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ testsight_user }}
+WorkingDirectory={{ host_postgres_dir }}
+ExecStart=/bin/bash ./backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

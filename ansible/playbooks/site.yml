@@ -1,0 +1,25 @@
+---
+- name: Provision the dedicated host
+  hosts: testsight
+  become: true
+  vars:
+    versions_env: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../cluster-bootstrap/versions.env') }}"
+  pre_tasks:
+    - name: Read the pinned k3s version
+      ansible.builtin.set_fact:
+        k3s_version: "{{ versions_env | regex_search('^K3S_VERSION=(.+)$', '\\1', multiline=True) | first }}"
+  # ansible-core 2.19 only loads group_vars adjacent to the inventory source or
+  # playbook, not to the cwd, so the shared vars are loaded explicitly here.
+  vars_files:
+    - ../group_vars/all/vars.yml
+    - ../group_vars/all/vault.yml
+    - ../group_vars/testsight_hosts/vars.yml
+    - ../host_vars/testsight/vars.yml
+  roles:
+    - base
+    - ssh
+    - docker
+    - firewall
+    - k3s
+    - postgres
+    - backup

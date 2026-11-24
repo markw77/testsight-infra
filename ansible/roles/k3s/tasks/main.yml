@@ -1,0 +1,47 @@
+---
+- name: Install k3s at the pinned version
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      curl -sfL https://get.k3s.io | env
+      INSTALL_K3S_VERSION={{ k3s_version }}
+      INSTALL_K3S_EXEC="server --tls-san {{ testsight_host_ip }} --write-kubeconfig-mode 600 --disable traefik"
+      sh -
+    executable: /bin/bash
+    creates: /usr/local/bin/k3s
+
+- name: Enable and start k3s
+  ansible.builtin.systemd_service:
+    name: k3s
+    state: started
+    enabled: true
+
+- name: Wait for the node to report Ready
+  ansible.builtin.command:
+    # Single quotes keep the shell from stripping the JSONPath string literal,
+    # and jsonpath-as-json avoids the "unrecognized identifier" parse error.
+    cmd: >-
+      k3s kubectl get nodes -o 'jsonpath-as-json={.items[*].status.conditions[?(@.type=="Ready")].status}'
+  register: k3s_node_ready
+  until: k3s_node_ready.stdout is search('True')
+  retries: 30
+  delay: 5
+  changed_when: false
+  # Read-only probe: in check mode the command is skipped and `stdout` is empty,
+  # so the retry loop would burn all 30 attempts and then fail.
+  check_mode: false
+
+- name: Assert Traefik is absent
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      ! k3s kubectl -n kube-system get deploy -o name | grep -q traefik
+    executable: /bin/bash
+  changed_when: false
+  register: k3s_no_traefik
+  failed_when: k3s_no_traefik.rc != 0
+  check_mode: false
+
+- name: Report the k3s version
+  ansible.builtin.debug:
+    msg: "k3s {{ k3s_version }} is Ready with Traefik disabled"

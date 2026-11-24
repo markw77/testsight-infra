@@ -1,0 +1,4 @@
+# Shell sourced from a path computed at runtime (${here}/lib.sh), which the
+# tool cannot resolve; the files exist and are checked individually.
+disable=SC1091
+disable=SC2029

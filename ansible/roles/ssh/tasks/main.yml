@@ -1,0 +1,58 @@
+---
+# Order matters: install the key and prove key-only login before disabling
+# passwords, otherwise the host can lock out the workstation.
+- name: Ensure the SSH service runs
+  ansible.builtin.systemd_service:
+    name: ssh
+    state: started
+    enabled: true
+
+- name: Create the testsight user
+  ansible.builtin.user:
+    name: "{{ testsight_user }}"
+    groups: sudo
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Grant passwordless sudo to the testsight user
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/90-{{ testsight_user }}
+    mode: "0440"
+    validate: "visudo -cf %s"
+    content: "{{ testsight_user }} ALL=(ALL) NOPASSWD:ALL\n"
+
+- name: Install the workstation public key
+  ansible.posix.authorized_key:
+    user: "{{ testsight_user }}"
+    key: "{{ ssh_authorized_key }}"
+    state: present
+
+# A self-connecting ssh check cannot work here: the host holds no private key
+# for the testsight user, and the workstation's key is not readable by any
+# other account on the host. Verify the installed key material instead; the
+# end-to-end proof is the key-only ssh check the workstation runs before this
+# play is applied (docs/bring-up.md step 3).
+- name: Verify the workstation key is present before disabling passwords
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -qF
+      - "{{ ssh_authorized_key.split()[1] }}"
+      - "/home/{{ testsight_user }}/.ssh/authorized_keys"
+  changed_when: false
+
+- name: Install the SSH hardening drop-in
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-testsight.conf
+    mode: "0644"
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+      X11Forwarding no
+      MaxAuthTries 3
+  notify:
+    - Validate sshd configuration
+    - Reload ssh

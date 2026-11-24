@@ -1,0 +1,33 @@
+# Argo CD values for testsight.
+#
+# The UI is reachable from the LAN only, on https://<host-ip>:8080. k3s ships its
+# own ServiceLB (klipper), so there is no cloud provider and no Ingress
+# controller; a LoadBalancer Service binds the host's address directly. Access is
+# restricted twice: ufw allows 8080 from testsight_lan_cidr, and the DOCKER-USER
+# chain does the same for any port Docker/NAT may front.
+server:
+  service:
+    type: LoadBalancer
+    # Default ports (80/443) will be patched to single 8080 port after install.
+    # klipper creates NodePorts for each port; extra ports bypass ufw.
+    servicePortHttp: 80
+    servicePortHttps: 443
+    servicePortHttpName: http
+    servicePortHttpsName: https
+
+configs:
+  params:
+    # TLS terminates inside argocd-server, so browsers must use https:// and
+    # accept the self-signed certificate. Set this to "true" only if a proxy
+    # terminates TLS in front of Argo.
+    server.insecure: "false"
+
+# The admin password is not in this file. `install-argocd.sh` reads it from the
+# vault, bcrypt-hashes it, and passes the hash through
+# configs.secret.argocdServerAdminPassword as --set-string. It has to go through
+# Helm because the chart owns the argocd-secret object.
+redis-ha:
+  enabled: false
+
+applicationSet:
+  enabled: false

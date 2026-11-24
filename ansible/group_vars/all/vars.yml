@@ -1,0 +1,29 @@
+# Non-secret variables shared by every host.
+#
+# This repository is public. Do not put host addresses, LAN CIDRs, or credentials
+# here; those belong in gitignored host_vars or Ansible Vault.
+
+testsight_user: marek
+testsight_timezone: UTC
+
+# Pinned versions are read from cluster-bootstrap/versions.env when present.
+k3s_disable_traefik: true
+
+host_postgres_dir: /opt/testsight/deploy/host-postgres
+backup_dir: /var/backups/testsight
+backup_retention_days: 14
+
+# Argo CD web UI, served with k3s ServiceLB on the host's LAN address. The port
+# is allowed from testsight_lan_cidr only, in both ufw and DOCKER-USER.
+argocd_ui_port: 8080
+
+k3s_pod_cidr: 10.42.0.0/16
+k3s_service_cidr: 10.43.0.0/16
+pgadmin_network_cidr: 172.30.0.0/24
+
+# Images the host stack runs. Single source so the compose template, the probe
+# in verify.yml, and documentation all agree.
+postgres_image: postgres:16-alpine
+pgadmin_image: dpage/pgadmin4:8.14
+
+kubeconfig_path: "{{ lookup('env', 'HOME') }}/.kube/testsight-dedicated.yaml"

@@ -1,0 +1,59 @@
+---
+- name: Create the host Postgres directory
+  ansible.builtin.file:
+    path: "{{ host_postgres_dir }}"
+    state: directory
+    owner: "{{ testsight_user }}"
+    group: "{{ testsight_user }}"
+    mode: "0750"
+
+- name: Render the Compose stack
+  ansible.builtin.template:
+    src: docker-compose.yml
+    dest: "{{ host_postgres_dir }}/docker-compose.yml"
+    owner: "{{ testsight_user }}"
+    group: "{{ testsight_user }}"
+    mode: "0644"
+
+- name: Render pg_hba.conf
+  ansible.builtin.template:
+    src: pg_hba.conf
+    dest: "{{ host_postgres_dir }}/pg_hba.conf"
+    owner: "{{ testsight_user }}"
+    group: "{{ testsight_user }}"
+    mode: "0644"
+
+- name: Install the pgAdmin server entry
+  ansible.builtin.copy:
+    src: pgadmin-servers.json
+    dest: "{{ host_postgres_dir }}/pgadmin-servers.json"
+    owner: "{{ testsight_user }}"
+    group: "{{ testsight_user }}"
+    mode: "0644"
+
+- name: Render the container environment file
+  ansible.builtin.template:
+    src: .env.example
+    dest: "{{ host_postgres_dir }}/.env"
+    owner: "{{ testsight_user }}"
+    group: "{{ testsight_user }}"
+    mode: "0600"
+  no_log: true
+  notify: Recreate the Postgres stack
+
+- name: Start the Postgres and pgAdmin stack
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ host_postgres_dir }}"
+  register: postgres_compose_up
+  changed_when: "'Started' in postgres_compose_up.stdout or 'Recreated' in postgres_compose_up.stdout or 'Created' in postgres_compose_up.stdout"
+
+- name: Wait for Postgres to accept connections
+  ansible.builtin.command:
+    cmd: docker compose exec -T postgres pg_isready -U {{ postgres_user }} -d {{ postgres_db }}
+    chdir: "{{ host_postgres_dir }}"
+  register: postgres_ready
+  until: postgres_ready.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false

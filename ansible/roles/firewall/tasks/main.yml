@@ -1,0 +1,147 @@
+---
+# Runs after the docker role so the DOCKER-USER chain exists.
+# UFW is already active on a stock Ubuntu image, so allow rules are added before
+# the enable step and SSH is never at risk.
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Separate tasks rather than a loop: ansible-lint cannot validate a templated
+# policy against the module's allowed values.
+- name: Set the incoming UFW policy to deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set the outgoing UFW policy to allow
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+# A stock Ubuntu image can ship an `OpenSSH ALLOW Anywhere` rule, which would
+# leave 22 open to the internet regardless of the LAN rule below. Remove it so
+# the LAN-restricted rule is the only path to SSH. Both forms are targeted: the
+# rule may be recorded under the /etc/services app profile name or as 22/tcp.
+#
+# The rule is only deleted when ufw actually reports it. `community.general.ufw`
+# with `delete: true` returns changed=true for a rule that does not exist, so
+# deleting unconditionally reports a change on every run. The status read is
+# forced to run in check mode too, so the condition is accurate in a dry run.
+- name: Read the current UFW rules
+  ansible.builtin.command:
+    cmd: ufw status
+  register: firewall_status
+  changed_when: false
+  check_mode: false
+
+- name: Remove any blanket SSH allow
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+    delete: true
+  when: "firewall_status.stdout is search('^(\\\\[[ 0-9]+\\\\]\\\\s+)?OpenSSH\\\\s+ALLOW IN\\\\s+Anywhere\\\\s*$', multiline=True)"
+  failed_when: false
+
+- name: Remove any blanket 22/tcp allow from anywhere
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from_ip: any
+    delete: true
+  when: "firewall_status.stdout is search('^(\\\\[[ 0-9]+\\\\]\\\\s+)?22/tcp\\\\s+ALLOW IN\\\\s+Anywhere\\\\s*$', multiline=True)"
+  failed_when: false
+
+- name: Allow SSH from the LAN
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from_ip: "{{ testsight_lan_cidr }}"
+
+- name: Allow the k3s API from the LAN
+  community.general.ufw:
+    rule: allow
+    port: "6443"
+    proto: tcp
+    from_ip: "{{ testsight_lan_cidr }}"
+
+- name: Allow the Argo CD UI from the LAN
+  community.general.ufw:
+    rule: allow
+    port: "{{ argocd_ui_port }}"
+    proto: tcp
+    from_ip: "{{ testsight_lan_cidr }}"
+
+- name: Allow VXLAN from the pod network
+  community.general.ufw:
+    rule: allow
+    port: "8472"
+    proto: udp
+    from_ip: "{{ k3s_pod_cidr }}"
+
+- name: Allow kubelet from the pod network
+  community.general.ufw:
+    rule: allow
+    port: "10250"
+    proto: tcp
+    from_ip: "{{ k3s_pod_cidr }}"
+
+- name: Allow pod and service CIDRs on the host interfaces
+  community.general.ufw:
+    rule: allow
+    interface: "{{ item.interface }}"
+    direction: in
+  loop:
+    - {interface: cni0}
+    - {interface: flannel.1}
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+    logging: low
+
+# Docker publishes ports with its own NAT rules, which bypass UFW.
+# DOCKER-USER is evaluated before those rules, so it is where a published port
+# is restricted. kube-router's KUBE-ROUTER-FORWARD chain is ordered earlier and
+# also drops new flows to pod addresses, but established flows skip it via
+# KUBE-FORWARD, so these rules are required rather than redundant. The restore
+# script is idempotent and is re-run on every boot because Docker re-creates the
+# chain on start.
+
+- name: Install the DOCKER-USER restore script
+  ansible.builtin.template:
+    src: testsight-docker-user.sh.j2
+    dest: /usr/local/sbin/testsight-docker-user.sh
+    mode: "0755"
+  notify: Apply the DOCKER-USER rules
+
+- name: Install the DOCKER-USER unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/testsight-docker-user.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Restore testsight DOCKER-USER rules
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/local/sbin/testsight-docker-user.sh
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Apply the DOCKER-USER rules
+
+- name: Enable and apply the DOCKER-USER unit
+  ansible.builtin.systemd_service:
+    name: testsight-docker-user.service
+    daemon_reload: true
+    enabled: true
+    state: started

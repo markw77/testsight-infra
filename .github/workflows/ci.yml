@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # ansible-core 2.22 requires Python >= 3.13 (see ANSIBLE_CORE_VERSION
+          # in cluster-bootstrap/versions.env).
+          python-version: "3.13"
+
+      - name: Install linters
+        run: |
+          python -m pip install --upgrade pip
+          . cluster-bootstrap/versions.env
+          pip install "ansible-core==${ANSIBLE_CORE_VERSION}" ansible-lint yamllint
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Install shellcheck and kubeconform
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          . cluster-bootstrap/versions.env
+          curl -fsSL -o /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+
+      - name: yamllint
+        run: yamllint -c .yamllint ansible cluster-bootstrap .github
+
+      - name: ansible-lint
+        run: cd ansible && ansible-lint
+
+      - name: ansible syntax check
+        run: |
+          cd ansible
+          ansible-playbook playbooks/site.yml --syntax-check
+          ansible-playbook playbooks/verify.yml --syntax-check
+
+      - name: shellcheck
+        run: shellcheck cluster-bootstrap/scripts/*.sh ansible/roles/backup/files/*.sh
+
+      - name: kubeconform
+        run: >-
+          kubeconform -ignore-missing-schemas -strict
+          cluster-bootstrap/argocd cluster-bootstrap/secrets
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

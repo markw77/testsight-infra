@@ -1,0 +1,6 @@
+---
+- name: Recreate the Postgres stack
+  ansible.builtin.command:
+    cmd: docker compose up -d --force-recreate
+    chdir: "{{ host_postgres_dir }}"
+  changed_when: true

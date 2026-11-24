@@ -1,0 +1,14 @@
+# Gitignored. Copy to vars.yml and set your host values.
+# ansible_host is read from this file by inventory/hosts.yml; ansible_user lives
+# in inventory/hosts.yml.
+
+testsight_host_ip: 192.168.8.200
+testsight_lan_cidr: 192.168.8.0/24
+
+postgres_db: testsight
+postgres_user: testsight
+
+# Workstation public key installed on the host by the ssh role. The play stops
+# before disabling password auth if this key is not on the host, so it must be
+# a key that can log in to <ansible_user>@<testsight_host_ip>.
+ssh_authorized_key: "ssh-ed25519 AAAA... you@workstation"

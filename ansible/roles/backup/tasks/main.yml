@@ -1,0 +1,59 @@
+---
+- name: Create the backup directory
+  ansible.builtin.file:
+    path: "{{ backup_dir }}"
+    state: directory
+    owner: "{{ testsight_user }}"
+    group: "{{ testsight_user }}"
+    mode: "0750"
+
+- name: Install the backup script
+  ansible.builtin.copy:
+    src: backup.sh
+    dest: "{{ host_postgres_dir }}/backup.sh"
+    owner: "{{ testsight_user }}"
+    group: "{{ testsight_user }}"
+    mode: "0750"
+
+- name: Install the backup service
+  ansible.builtin.template:
+    src: testsight-backup.service
+    dest: /etc/systemd/system/testsight-backup.service
+    mode: "0644"
+  notify:
+    - Reload the backup units
+    - Restart the backup timer
+
+- name: Install the backup timer
+  ansible.builtin.template:
+    src: testsight-backup.timer
+    dest: /etc/systemd/system/testsight-backup.timer
+    mode: "0644"
+  notify:
+    - Reload the backup units
+    - Restart the backup timer
+
+- name: Enable the backup timer
+  ansible.builtin.systemd_service:
+    name: testsight-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Run one backup
+  ansible.builtin.command:
+    cmd: ./backup.sh
+    chdir: "{{ host_postgres_dir }}"
+  # A backup always writes a new dump, but it is a deliberate side effect, not
+  # configuration drift, so it must not break the changed=0 idempotence check.
+  changed_when: false
+  register: backup_first_run
+
+- name: Verify the newest backup checksum
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      latest=$(ls -1t {{ backup_dir }}/testsight-*.dump.gz | head -n1)
+      sha256sum -c "${latest}.sha256"
+    executable: /bin/bash
+  changed_when: false

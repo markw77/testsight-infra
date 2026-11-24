@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: testsight
+  namespace: argocd
+spec:
+  description: testsight hosted and self-hosted deployments
+  sourceRepos:
+    - https://github.com/markw77/testsight.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: testsight-system
+    - server: https://kubernetes.default.svc
+      namespace: testsight-runners
+    # The app-of-apps root creates Application objects here.
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  orphanedResources:
+    warn: true

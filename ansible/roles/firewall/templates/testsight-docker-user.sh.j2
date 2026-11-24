@@ -1,0 +1,25 @@
+#!/bin/bash
+# Idempotently restore the DOCKER-USER rules for testsight published ports.
+# Docker re-creates the chain on start; this script re-applies the rules.
+set -euo pipefail
+
+rules=(
+  "-p tcp -m conntrack --ctorigdstport 5432 --ctdir ORIGINAL -s {{ k3s_pod_cidr }} -j RETURN"
+  "-p tcp -m conntrack --ctorigdstport 5432 --ctdir ORIGINAL -s {{ pgadmin_network_cidr }} -j RETURN"
+  "-p tcp -m conntrack --ctorigdstport 5432 --ctdir ORIGINAL -s {{ testsight_host_ip }}/32 -j RETURN"
+  "-p tcp -m conntrack --ctorigdstport 5432 --ctdir ORIGINAL -j DROP"
+  "-p tcp -m conntrack --ctorigdstport 5050 --ctdir ORIGINAL -s {{ testsight_lan_cidr }} -j RETURN"
+  "-p tcp -m conntrack --ctorigdstport 5050 --ctdir ORIGINAL -j DROP"
+  "-p tcp -m conntrack --ctorigdstport {{ argocd_ui_port }} --ctdir ORIGINAL -s {{ testsight_lan_cidr }} -j RETURN"
+  "-p tcp -m conntrack --ctorigdstport {{ argocd_ui_port }} --ctdir ORIGINAL -j DROP"
+)
+
+iptables -N DOCKER-USER 2>/dev/null || true
+
+# Rebuild the chain from scratch so re-runs never duplicate or reorder rules.
+iptables -F DOCKER-USER
+
+for rule in "${rules[@]}"; do
+  # shellcheck disable=SC2086
+  iptables -A DOCKER-USER ${rule}
+done

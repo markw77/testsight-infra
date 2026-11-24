@@ -1,0 +1,158 @@
+---
+- name: Verify the dedicated host
+  hosts: testsight
+  become: true
+  # Same explicit loads as site.yml: ansible-core does not pick up group_vars or
+  # host_vars from this playbook's directory or the cwd.
+  vars_files:
+    - ../group_vars/all/vars.yml
+    - ../group_vars/all/vault.yml
+    - ../group_vars/testsight_hosts/vars.yml
+    - ../host_vars/testsight/vars.yml
+  tasks:
+    - name: Read the effective sshd configuration
+      ansible.builtin.command:
+        cmd: sshd -T
+      register: verify_sshd
+      changed_when: false
+
+    - name: Assert SSH hardening is applied
+      ansible.builtin.assert:
+        that:
+          - "'passwordauthentication no' in verify_sshd.stdout"
+          - "'permitrootlogin no' in verify_sshd.stdout"
+          - "'pubkeyauthentication yes' in verify_sshd.stdout"
+        fail_msg: "sshd is not hardened"
+
+    - name: Read the UFW status
+      ansible.builtin.command:
+        cmd: ufw status
+      register: verify_ufw
+      changed_when: false
+
+    - name: Assert UFW is active
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in verify_ufw.stdout"
+        fail_msg: "UFW is not active"
+
+    - name: Read the listening TCP ports
+      ansible.builtin.shell:
+        cmd: set -o pipefail; ss -ltnH | awk '{print $4}'
+        executable: /bin/bash
+      register: verify_listeners
+      changed_when: false
+
+    - name: Assert expected listeners and no web listeners
+      ansible.builtin.assert:
+        that:
+          - "verify_listeners.stdout is search(':6443')"
+          - "verify_listeners.stdout is search(':5432')"
+          - "verify_listeners.stdout is search(':5050')"
+          - "verify_listeners.stdout is not search('\\*:80$')"
+          - "verify_listeners.stdout is not search('\\*:443$')"
+        fail_msg: "unexpected listener set"
+
+    # The DOCKER-USER rules cannot be validated by reading their text: they are
+    # only reached for flows kube-router's policy chain does not accept first,
+    # so a text check passes even if the chain is ordered such that nothing
+    # matches. Probe reachability instead, from a Docker bridge, which is the
+    # same forwarded path a LAN client takes. The image is the one the stack
+    # already runs, so this needs no pull beyond what the postgres role did.
+    - name: Probe the published Postgres port from outside the host namespace
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --rm
+          - --entrypoint
+          - /bin/sh
+          - "{{ postgres_image }}"
+          - -c
+          - "timeout 5 nc -z {{ testsight_host_ip }} 5432 && echo reachable || echo blocked"
+      register: verify_pg_probe
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the published Postgres port is not reachable from outside
+      ansible.builtin.assert:
+        that:
+          - "'blocked' in verify_pg_probe.stdout"
+        fail_msg: >-
+          Postgres on {{ testsight_host_ip }}:5432 answered a connection from a
+          Docker bridge, so the DOCKER-USER rules are not blocking it:
+          {{ verify_pg_probe.stdout }} {{ verify_pg_probe.stderr }}
+
+    - name: Read the DOCKER-USER chain
+      ansible.builtin.command:
+        cmd: iptables -S DOCKER-USER
+      register: verify_docker_user
+      changed_when: false
+
+    # Kept as a guard against the chain being emptied or reordered on boot; the
+    # probe above is what proves the restriction actually holds.
+    - name: Assert the DOCKER-USER fallback drops exist
+      ansible.builtin.assert:
+        that:
+          - "verify_docker_user.stdout is search('ctorigdstport 5432')"
+          - "verify_docker_user.stdout is search('ctorigdstport 5050')"
+          - "verify_docker_user.stdout is search('DROP')"
+        fail_msg: "DOCKER-USER rules are missing"
+
+    - name: Check the host stack
+      ansible.builtin.command:
+        # --format hides the header so the assertions below only match the
+        # containers themselves, not a column titled "STATUS".
+        cmd: docker compose ps --format "{{ '{{' }}.Name{{ '}}' }} {{ '{{' }}.Service{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}"
+        chdir: "{{ host_postgres_dir }}"
+      register: verify_compose
+      changed_when: false
+
+    - name: Assert Postgres and pgAdmin are running
+      ansible.builtin.assert:
+        that:
+          - verify_compose.stdout | trim | split('\n') | select('search', 'testsight-postgres\s+postgres\s+Up') | list | length == 1
+          - verify_compose.stdout | trim | split('\n') | select('search', 'testsight-pgadmin\s+pgadmin\s+Up') | list | length == 1
+          - verify_compose.stdout is not search('(unhealthy|Restarting|Exited)')
+        fail_msg: "host Postgres stack is not healthy: {{ verify_compose.stdout }}"
+
+    - name: Read the k3s node state
+      ansible.builtin.command:
+        cmd: >-
+          k3s kubectl get nodes -o 'jsonpath-as-json={.items[*].status.conditions[?(@.type=="Ready")].status}'
+      register: verify_node
+      changed_when: false
+
+    - name: Assert the node is Ready
+      ansible.builtin.assert:
+        that:
+          - verify_node.stdout is search('True')
+        fail_msg: "k3s node is not Ready: {{ verify_node.stdout }}"
+
+    - name: List kube-system workloads
+      ansible.builtin.command:
+        cmd: k3s kubectl -n kube-system get deploy,ds -o name
+      register: verify_kube_system
+      changed_when: false
+
+    - name: Assert Traefik is absent and core addons exist
+      ansible.builtin.assert:
+        that:
+          - "'traefik' not in verify_kube_system.stdout"
+          - "'coredns' in verify_kube_system.stdout"
+          - "'metrics-server' in verify_kube_system.stdout"
+          - "'local-path-provisioner' in verify_kube_system.stdout"
+        fail_msg: "k3s addon set is wrong"
+
+    - name: Check the backup timer
+      ansible.builtin.systemd_service:
+        name: testsight-backup.timer
+      register: verify_timer
+      changed_when: false
+      check_mode: false
+
+    - name: Assert the backup timer is active
+      ansible.builtin.assert:
+        that:
+          - verify_timer.status.ActiveState == "active"
+        fail_msg: "backup timer is not active"
