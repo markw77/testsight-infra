@@ -18,14 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # After a PR closes its merge ref may be gone, so fall back to the base
           # branch for pull_request events; other events use the selected ref.
           ref: ${{ github.event.pull_request.base.ref || github.ref }}
 
       - name: Cache Renovate
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/renovate
           key: renovate-${{ runner.os }}-${{ hashFiles('renovate.json') }}
