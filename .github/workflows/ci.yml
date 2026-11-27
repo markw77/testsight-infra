@@ -32,16 +32,7 @@ jobs:
             "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
 
-      - name: Set up vault password
-        run: |
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault-pass
-          chmod 600 /tmp/vault-pass
-        env:
-          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-
       - name: pre-commit
-        env:
-          ANSIBLE_VAULT_PASSWORD_FILE: /tmp/vault-pass
         run: |
           python -m pip install pre-commit
           pre-commit run --all-files
