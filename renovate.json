@@ -62,17 +62,62 @@
   "regexManagers": [
     {
       "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": [
-        "K3S_VERSION=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)",
-        "HELM_VERSION=(?P<currentValue>v?[\\d.]+)",
-        "ARGOCD_CHART_VERSION=(?P<currentValue>[\\d.]+)",
-        "SEALED_SECRETS_VERSION=(?P<currentValue>v?[\\d.]+)",
-        "KUBESEAL_VERSION=(?P<currentValue>v?[\\d.]+)",
-        "KUBECONFORM_VERSION=(?P<currentValue>v?[\\d.]+)",
-        "KUBECTL_VERSION=(?P<currentValue>v?[\\d.]+)",
-        "ANSIBLE_CORE_VERSION=(?P<currentValue>[\\d.]+)"
-      ],
-      "depNameTemplate": "{{matchGroup(1)}}",
+      "matchStrings": ["K3S_VERSION=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)"],
+      "depNameTemplate": "rancher/k3s",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": ["HELM_VERSION=(?P<currentValue>v?[\\d.]+)"],
+      "depNameTemplate": "helm/helm",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": ["ARGOCD_CHART_VERSION=(?P<currentValue>[\\d.]+)"],
+      "depNameTemplate": "argo/argocd",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": ["SEALED_SECRETS_VERSION=(?P<currentValue>v?[\\d.]+)"],
+      "depNameTemplate": "bitnami/sealed-secrets-controller",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": ["KUBESEAL_VERSION=(?P<currentValue>v?[\\d.]+)"],
+      "depNameTemplate": "bitnami/kubeseal",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": ["KUBECONFORM_VERSION=(?P<currentValue>v?[\\d.]+)"],
+      "depNameTemplate": "yannh/kubeconform",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": ["KUBECTL_VERSION=(?P<currentValue>v?[\\d.]+)"],
+      "depNameTemplate": "kubernetes/kubectl",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["ansible/group_vars/all/vars.yml"],
+      "matchStrings": ["postgres_image:\\s*\"?(?P<depName>postgres):(?P<currentValue>[\\d.]+-?[\\w]*)\"?"],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    },
+    {
+      "fileMatch": ["ansible/group_vars/all/vars.yml"],
+      "matchStrings": ["pgadmin_image:\\s*\"?(?P<depName>dpage/pgadmin4):(?P<currentValue>[\\d.]+)\"?"],
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
     }
