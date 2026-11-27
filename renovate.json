@@ -14,6 +14,11 @@
   "prConcurrentLimit": 10,
   "branchConcurrentLimit": 5,
   "rangeStrategy": "bump",
+  "registryUrls": [
+    "https://registry.k8s.io",
+    "https://quay.io",
+    "https://ghcr.io"
+  ],
   "packageRules": [
     {
       "description": "Group GitHub Actions updates",
@@ -32,8 +37,7 @@
     },
     {
       "description": "Group Docker image updates from versions.env",
-      "matchManagers": ["dockerfile", "regex"],
-      "matchDatasources": ["docker"],
+      "matchManagers": ["custom.regex"],
       "groupName": "docker-images"
     },
     {
@@ -58,32 +62,32 @@
       "description": "Major updates need manual review",
       "matchUpdateTypes": ["major"],
       "automerge": false
-    },
-    {
-      "description": "Enable kubernetes manager for k8s manifests",
-      "matchManagers": ["kubernetes"],
-      "enabled": true
     }
   ],
   "github-actions": {
     "enabled": true,
-    "fileMatch": [".github/workflows/**/*.yml", ".github/workflows/**/*.yaml"]
+    "managerFilePatterns": ["/\\.github/workflows/.*\\.ya?ml/"]
   },
   "ansible-galaxy": {
     "enabled": true,
-    "fileMatch": ["ansible/requirements.yml"]
+    "managerFilePatterns": ["/ansible/requirements\\.yml/"]
   },
   "pre-commit": {
     "enabled": true,
-    "fileMatch": [".pre-commit-config.yaml"]
+    "managerFilePatterns": ["/\\.pre-commit-config\\.yaml/"]
   },
   "dockerfile": {
     "enabled": true,
-    "fileMatch": ["**/Dockerfile*", "**/docker-compose*.yml", "**/docker-compose*.yaml"]
+    "managerFilePatterns": ["/Dockerfile/", "/docker-compose.*\\.ya?ml/"]
   },
-  "regexManagers": [
+  "kubernetes": {
+    "enabled": true,
+    "managerFilePatterns": ["/cluster-bootstrap/(argocd|secrets)/.*\\.ya?ml/"]
+  },
+  "customManagers": [
     {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "customType": "regex",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env/"],
       "matchStrings": [
         "(?P<depName>K3S_VERSION)=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)",
         "(?P<depName>HELM_VERSION)=(?P<currentValue>v?[\\d.]+)",
@@ -95,16 +99,12 @@
         "(?P<depName>ANSIBLE_CORE_VERSION)=(?P<currentValue>[\\d.]+)"
       ],
       "datasourceTemplate": "docker",
-      "registryUrls": [
-        "https://registry.k8s.io",
-        "https://quay.io",
-        "https://ghcr.io"
-      ],
       "versioningTemplate": "semver",
       "depNameTemplate": "{{depName}}"
     },
     {
-      "fileMatch": ["ansible/group_vars/all/vars.yml"],
+      "customType": "regex",
+      "managerFilePatterns": ["/ansible/group_vars/all/vars\\.yml/"],
       "matchStrings": [
         "postgres_image:\\s*\"?(?P<depName>postgres):(?P<currentValue>[\\d.]+-?[\\w]*)\"?",
         "pgadmin_image:\\s*\"?(?P<depName>dpage/pgadmin4):(?P<currentValue>[\\d.]+)\"?"
@@ -112,12 +112,5 @@
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
     }
-  ],
-  "kubernetes": {
-    "enabled": true,
-    "fileMatch": [
-      "cluster-bootstrap/argocd/**/*.yaml",
-      "cluster-bootstrap/secrets/**/*.yaml"
-    ]
-  }
+  ]
 }
