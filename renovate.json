@@ -59,24 +59,13 @@
       "automerge": false
     }
   ],
-  "github-actions": {
-    "enabled": true
-  },
-  "ansible-galaxy": {
-    "enabled": true
-  },
-  "pre-commit": {
-    "enabled": true
-  },
-  "dockerfile": {
-    "enabled": true
-  },
-  "kubernetes": {
-    "enabled": true
-  },
-  "customManagers": [
+  "github-actions": {"enabled": true},
+  "ansible-galaxy": {"enabled": true},
+  "pre-commit": {"enabled": true},
+  "dockerfile": {"enabled": true},
+  "kubernetes": {"enabled": true},
+  "regexManagers": [
     {
-      "customType": "regex",
       "fileMatch": ["cluster-bootstrap/versions.env"],
       "matchStrings": [
         "(?P<depName>K3S_VERSION)=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)",
@@ -93,7 +82,6 @@
       "depNameTemplate": "{{depName}}"
     },
     {
-      "customType": "regex",
       "fileMatch": ["ansible/group_vars/all/vars.yml"],
       "matchStrings": [
         "postgres_image:\\s*\"?(?P<depName>postgres):(?P<currentValue>[\\d.]+-?[\\w]*)\"?",
