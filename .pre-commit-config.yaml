@@ -1,9 +1,49 @@
 repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        name: gitleaks
+        entry: gitleaks detect --source . --verbose
+        language: golang
+        pass_filenames: false
+        always_run: true
+
   - repo: local
     hooks:
-      - id: lint
-        name: make lint
-        entry: make lint
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck --external-sources
+        language: system
+        files: ^(cluster-bootstrap/scripts/|ansible/roles/backup/files/).+\.sh$
+        pass_filenames: true
+
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v26.4.0
+    hooks:
+      - id: ansible-lint
+        # Run from ansible/ so ansible.cfg (roles_path = roles) is loaded and the
+        # playbook roles resolve; pre-commit otherwise runs from the repo root.
+        entry: bash -c 'cd ansible && ansible-lint'
+        pass_filenames: false
+        always_run: true
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [--config-file=.yamllint]
+        always_run: true
+
+  - repo: local
+    hooks:
+      - id: kubeconform
+        name: kubeconform
+        entry: >-
+          bash -c 'kubeconform -strict -ignore-missing-schemas
+          -schema-location default
+          -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
+          cluster-bootstrap/argocd cluster-bootstrap/secrets'
         language: system
         pass_filenames: false
         always_run: true
