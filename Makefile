@@ -4,14 +4,14 @@ SHELL := /bin/bash
 ANSIBLE_DIR := ansible
 BOOTSTRAP_DIR := cluster-bootstrap
 KUBECONFIG ?= $(HOME)/.kube/testsight-dedicated.yaml
-VAULT_PASS ?= $(HOME)/.config/testsight/vault-pass
+VAULT_PASS = $(HOME)/.config/testsight/vault-pass
 TOOLS_DIR ?= $(HOME)/.local/bin
 export PATH := $(TOOLS_DIR):$(HOME)/.local/bin:$(PATH)
 ANSIBLE_VENV ?= $(HOME)/.local/share/testsight/ansible-venv
 ANSIBLE_BIN := $(ANSIBLE_VENV)/bin
 PYTHON ?= python3
 
-.PHONY: help install-tools lint-tools secrets-init site site-check kubeconfig bootstrap seal verify backup-now restore-test lint
+.PHONY: help install-tools lint-tools secrets-init site site-check kubeconfig bootstrap seal verify backup-now restore-test lint pre-commit
 
 help:
 	@echo "Targets: install-tools lint-tools secrets-init site site-check kubeconfig bootstrap seal verify backup-now restore-test lint"
@@ -95,7 +95,21 @@ lint:
 	@echo "yamllint"
 	@yamllint -c .yamllint $(ANSIBLE_DIR) $(BOOTSTRAP_DIR) .github
 	@echo "ansible-lint"
-	@cd $(ANSIBLE_DIR) && ANSIBLE_VAULT_PASSWORD_FILE=$(VAULT_PASS) ansible-lint
+	@cd $(ANSIBLE_DIR) && if [ -f group_vars/all/vault.yml ]; then \
+	  VAULT_FILE="$$HOME/.config/testsight/vault-pass"; \
+	  if [ -n "$$ANSIBLE_VAULT_PASSWORD_FILE" ] && [ -f "$$ANSIBLE_VAULT_PASSWORD_FILE" ]; then \
+	    VAULT_FILE="$$ANSIBLE_VAULT_PASSWORD_FILE"; \
+	  fi; \
+	  if [ ! -f "$$VAULT_FILE" ]; then \
+	    echo "error: vault password file not found: $$VAULT_FILE" >&2; \
+	    echo "  set ANSIBLE_VAULT_PASSWORD_FILE or create ~/.config/testsight/vault-pass" >&2; \
+	    exit 1; \
+	  fi; \
+	  ANSIBLE_VAULT_PASSWORD_FILE="$$VAULT_FILE" ansible-lint; \
+	else \
+	  unset ANSIBLE_VAULT_PASSWORD_FILE; \
+	  ansible-lint; \
+	fi
 	@echo "shellcheck"
 	@shellcheck $(BOOTSTRAP_DIR)/scripts/*.sh $(ANSIBLE_DIR)/roles/backup/files/*.sh
 	@echo "kubeconform"
@@ -104,3 +118,12 @@ lint:
 	  echo "  secrets: no sealed manifests (run 'make seal')")
 	@kubeconform -ignore-missing-schemas -strict $(BOOTSTRAP_DIR)/argocd
 	@echo "lint ok"
+
+pre-commit:
+	@command -v pre-commit >/dev/null 2>&1 || { \
+	  echo "error: pre-commit not found; install with 'pip install pre-commit' or 'uv tool install pre-commit'" >&2; \
+	  exit 1; \
+	}
+	@echo "pre-commit"
+	pre-commit run --all-files
+	@echo "pre-commit ok"
