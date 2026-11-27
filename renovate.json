@@ -1,0 +1,123 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":automergePatch",
+    ":automergeMinor",
+    ":prHourlyLimit2"
+  ],
+  "labels": ["dependencies", "renovate"],
+  "schedule": ["every weekend"],
+  "timezone": "UTC",
+  "prConcurrentLimit": 10,
+  "branchConcurrentLimit": 5,
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Group Ansible collection updates",
+      "matchManagers": ["ansible-galaxy"],
+      "groupName": "ansible-collections"
+    },
+    {
+      "description": "Group pre-commit hook updates",
+      "matchManagers": ["pre-commit"],
+      "groupName": "pre-commit-hooks"
+    },
+    {
+      "description": "Group Docker image updates from versions.env",
+      "matchManagers": ["dockerfile", "regex"],
+      "matchDatasources": ["docker"],
+      "groupName": "docker-images"
+    },
+    {
+      "description": "Automerge patch/minor for GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "automergeType": "pr",
+      "automerge": true
+    },
+    {
+      "description": "Automerge patch/minor for Ansible collections",
+      "matchManagers": ["ansible-galaxy"],
+      "automergeType": "pr",
+      "automerge": true
+    },
+    {
+      "description": "Automerge patch/minor for pre-commit hooks",
+      "matchManagers": ["pre-commit"],
+      "automergeType": "pr",
+      "automerge": true
+    },
+    {
+      "description": "Major updates need manual review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "Enable kubernetes manager for k8s manifests",
+      "matchManagers": ["kubernetes"],
+      "enabled": true
+    }
+  ],
+  "github-actions": {
+    "enabled": true,
+    "fileMatch": [".github/workflows/**/*.yml", ".github/workflows/**/*.yaml"]
+  },
+  "ansible-galaxy": {
+    "enabled": true,
+    "fileMatch": ["ansible/requirements.yml"]
+  },
+  "pre-commit": {
+    "enabled": true,
+    "fileMatch": [".pre-commit-config.yaml"]
+  },
+  "dockerfile": {
+    "enabled": true,
+    "fileMatch": ["**/Dockerfile*", "**/docker-compose*.yml", "**/docker-compose*.yaml"]
+  },
+  "regexManagers": [
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": [
+        "(?P<depName>K3S_VERSION)=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)",
+        "(?P<depName>HELM_VERSION)=(?P<currentValue>v?[\\d.]+)",
+        "(?P<depName>ARGOCD_CHART_VERSION)=(?P<currentValue>[\\d.]+)",
+        "(?P<depName>SEALED_SECRETS_VERSION)=(?P<currentValue>v?[\\d.]+)",
+        "(?P<depName>KUBESEAL_VERSION)=(?P<currentValue>v?[\\d.]+)",
+        "(?P<depName>KUBECONFORM_VERSION)=(?P<currentValue>v?[\\d.]+)",
+        "(?P<depName>KUBECTL_VERSION)=(?P<currentValue>v?[\\d.]+)",
+        "(?P<depName>ANSIBLE_CORE_VERSION)=(?P<currentValue>[\\d.]+)"
+      ],
+      "datasourceTemplate": "docker",
+      "registryUrls": [
+        "https://registry.k8s.io",
+        "https://quay.io",
+        "https://ghcr.io"
+      ],
+      "versioningTemplate": "semver",
+      "depNameTemplate": "{{depName}}"
+    },
+    {
+      "fileMatch": ["ansible/group_vars/all/vars.yml"],
+      "matchStrings": [
+        "postgres_image:\\s*\"?(?P<depName>postgres):(?P<currentValue>[\\d.]+-?[\\w]*)\"?",
+        "pgadmin_image:\\s*\"?(?P<depName>dpage/pgadmin4):(?P<currentValue>[\\d.]+)\"?"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "kubernetes": {
+    "enabled": true,
+    "fileMatch": [
+      "cluster-bootstrap/argocd/**/*.yaml",
+      "cluster-bootstrap/secrets/**/*.yaml"
+    ]
+  }
+}

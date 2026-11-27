@@ -1,0 +1,38 @@
+name: Renovate
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 02:00 UTC
+  workflow_dispatch:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  renovate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Renovate
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/renovate
+          key: renovate-${{ runner.os }}-${{ hashFiles('renovate.json') }}
+          restore-keys: |
+            renovate-${{ runner.os }}-
+
+      - name: Run Renovate
+        uses: renovatebot/github-action@v41
+        env:
+          RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RENOVATE_CONFIG_FILE: renovate.json
+          LOG_LEVEL: info
+          RENOVATE_PLATFORM_COMMIT: "true"
+        with:
+          configurationFile: renovate.json
