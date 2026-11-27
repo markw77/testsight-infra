@@ -58,5 +58,23 @@
   "ansible-galaxy": {"enabled": true},
   "pre-commit": {"enabled": true},
   "dockerfile": {"enabled": true},
-  "kubernetes": {"enabled": true}
+  "kubernetes": {"enabled": true},
+  "regexManagers": [
+    {
+      "fileMatch": ["cluster-bootstrap/versions.env"],
+      "matchStrings": [
+        "K3S_VERSION=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)",
+        "HELM_VERSION=(?P<currentValue>v?[\\d.]+)",
+        "ARGOCD_CHART_VERSION=(?P<currentValue>[\\d.]+)",
+        "SEALED_SECRETS_VERSION=(?P<currentValue>v?[\\d.]+)",
+        "KUBESEAL_VERSION=(?P<currentValue>v?[\\d.]+)",
+        "KUBECONFORM_VERSION=(?P<currentValue>v?[\\d.]+)",
+        "KUBECTL_VERSION=(?P<currentValue>v?[\\d.]+)",
+        "ANSIBLE_CORE_VERSION=(?P<currentValue>[\\d.]+)"
+      ],
+      "depNameTemplate": "rancher/k3s",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver"
+    }
+  ]
 }
