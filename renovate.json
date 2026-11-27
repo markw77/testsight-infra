@@ -14,11 +14,6 @@
   "prConcurrentLimit": 10,
   "branchConcurrentLimit": 5,
   "rangeStrategy": "bump",
-  "registryUrls": [
-    "https://registry.k8s.io",
-    "https://quay.io",
-    "https://ghcr.io"
-  ],
   "packageRules": [
     {
       "description": "Group GitHub Actions updates",
@@ -65,29 +60,24 @@
     }
   ],
   "github-actions": {
-    "enabled": true,
-    "managerFilePatterns": ["/\\.github/workflows/.*\\.ya?ml/"]
+    "enabled": true
   },
   "ansible-galaxy": {
-    "enabled": true,
-    "managerFilePatterns": ["/ansible/requirements\\.yml/"]
+    "enabled": true
   },
   "pre-commit": {
-    "enabled": true,
-    "managerFilePatterns": ["/\\.pre-commit-config\\.yaml/"]
+    "enabled": true
   },
   "dockerfile": {
-    "enabled": true,
-    "managerFilePatterns": ["/Dockerfile/", "/docker-compose.*\\.ya?ml/"]
+    "enabled": true
   },
   "kubernetes": {
-    "enabled": true,
-    "managerFilePatterns": ["/cluster-bootstrap/(argocd|secrets)/.*\\.ya?ml/"]
+    "enabled": true
   },
   "customManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env/"],
+      "fileMatch": ["cluster-bootstrap/versions.env"],
       "matchStrings": [
         "(?P<depName>K3S_VERSION)=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)",
         "(?P<depName>HELM_VERSION)=(?P<currentValue>v?[\\d.]+)",
@@ -104,7 +94,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/ansible/group_vars/all/vars\\.yml/"],
+      "fileMatch": ["ansible/group_vars/all/vars.yml"],
       "matchStrings": [
         "postgres_image:\\s*\"?(?P<depName>postgres):(?P<currentValue>[\\d.]+-?[\\w]*)\"?",
         "pgadmin_image:\\s*\"?(?P<depName>dpage/pgadmin4):(?P<currentValue>[\\d.]+)\"?"
