@@ -32,6 +32,9 @@ jobs:
           restore-keys: |
             renovate-${{ runner.os }}-
 
+      # Do not pass `configurationFile`: Renovate reads renovate.json from the
+      # target branch itself. Mounting the same file as RENOVATE_CONFIG_FILE makes
+      # Renovate concatenate both copies and extract every pin twice.
       - name: Run Renovate
         uses: renovatebot/github-action@v48.0.0
         env:
@@ -39,5 +42,3 @@ jobs:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           LOG_LEVEL: info
           RENOVATE_PLATFORM_COMMIT: "enabled"
-        with:
-          configurationFile: renovate.json
