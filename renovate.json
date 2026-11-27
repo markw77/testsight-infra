@@ -31,6 +31,11 @@
       "groupName": "pre-commit-hooks"
     },
     {
+      "description": "Group version pin and image updates from versions.env and Ansible vars",
+      "matchManagers": ["custom.regex"],
+      "groupName": "pinned-versions"
+    },
+    {
       "description": "Automerge patch/minor for GitHub Actions",
       "matchManagers": ["github-actions"],
       "automergeType": "pr",
@@ -52,6 +57,11 @@
       "description": "Major updates need manual review",
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "description": "Argo CD is resolved from the Argo Helm chart repository",
+      "matchDatasources": ["helm"],
+      "registryUrls": ["https://argoproj.github.io/argo-helm"]
     }
   ],
   "github-actions": {"enabled": true},
@@ -59,67 +69,94 @@
   "pre-commit": {"enabled": true},
   "dockerfile": {"enabled": true},
   "kubernetes": {"enabled": true},
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": ["K3S_VERSION=(?P<currentValue>v?[\\d.]+[+\\-]?[\\w]*)"],
-      "depNameTemplate": "rancher/k3s",
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
+      "customType": "regex",
+      "description": "k3s from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["K3S_VERSION=(?<currentValue>v?[0-9.]+\\+k3s[0-9]+)"],
+      "depNameTemplate": "k3s-io/k3s",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "loose"
     },
     {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": ["HELM_VERSION=(?P<currentValue>v?[\\d.]+)"],
+      "customType": "regex",
+      "description": "Helm from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["HELM_VERSION=(?<currentValue>v?[0-9.]+)"],
       "depNameTemplate": "helm/helm",
-      "datasourceTemplate": "docker",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Argo CD Helm chart from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["ARGOCD_CHART_VERSION=(?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "argo-cd",
+      "datasourceTemplate": "helm",
       "versioningTemplate": "semver"
     },
     {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": ["ARGOCD_CHART_VERSION=(?P<currentValue>[\\d.]+)"],
-      "depNameTemplate": "argo/argocd",
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
+      "customType": "regex",
+      "description": "Sealed Secrets controller from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["SEALED_SECRETS_VERSION=(?<currentValue>v?[0-9.]+)"],
+      "depNameTemplate": "bitnami-labs/sealed-secrets",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
     },
     {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": ["SEALED_SECRETS_VERSION=(?P<currentValue>v?[\\d.]+)"],
-      "depNameTemplate": "bitnami/sealed-secrets-controller",
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
+      "customType": "regex",
+      "description": "kubeseal from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["KUBESEAL_VERSION=(?<currentValue>v?[0-9.]+)"],
+      "depNameTemplate": "bitnami-labs/sealed-secrets",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
     },
     {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": ["KUBESEAL_VERSION=(?P<currentValue>v?[\\d.]+)"],
-      "depNameTemplate": "bitnami/kubeseal",
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
-    },
-    {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": ["KUBECONFORM_VERSION=(?P<currentValue>v?[\\d.]+)"],
+      "customType": "regex",
+      "description": "kubeconform from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["KUBECONFORM_VERSION=(?<currentValue>v?[0-9.]+)"],
       "depNameTemplate": "yannh/kubeconform",
-      "datasourceTemplate": "docker",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "kubectl from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["KUBECTL_VERSION=(?<currentValue>v?[0-9.]+)"],
+      "depNameTemplate": "kubernetes/kubernetes",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "ansible-core from versions.env",
+      "managerFilePatterns": ["/cluster-bootstrap/versions\\.env$/"],
+      "matchStrings": ["ANSIBLE_CORE_VERSION=(?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "ansible-core",
+      "datasourceTemplate": "pypi",
       "versioningTemplate": "semver"
     },
     {
-      "fileMatch": ["cluster-bootstrap/versions.env"],
-      "matchStrings": ["KUBECTL_VERSION=(?P<currentValue>v?[\\d.]+)"],
-      "depNameTemplate": "kubernetes/kubectl",
+      "customType": "regex",
+      "description": "postgres image from Ansible vars",
+      "managerFilePatterns": ["/ansible/group_vars/all/vars\\.yml$/"],
+      "matchStrings": ["postgres_image:\\s*\"?(?<depName>[^\"\\s:]+):(?<currentValue>[^\"\\s]+)\"?"],
       "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
+      "versioningTemplate": "docker"
     },
     {
-      "fileMatch": ["ansible/group_vars/all/vars.yml"],
-      "matchStrings": ["postgres_image:\\s*\"?(?P<depName>postgres):(?P<currentValue>[\\d.]+-?[\\w]*)\"?"],
+      "customType": "regex",
+      "description": "pgadmin image from Ansible vars",
+      "managerFilePatterns": ["/ansible/group_vars/all/vars\\.yml$/"],
+      "matchStrings": ["pgadmin_image:\\s*\"?(?<depName>[^\"\\s:]+):(?<currentValue>[^\"\\s]+)\"?"],
       "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
-    },
-    {
-      "fileMatch": ["ansible/group_vars/all/vars.yml"],
-      "matchStrings": ["pgadmin_image:\\s*\"?(?P<depName>dpage/pgadmin4):(?P<currentValue>[\\d.]+)\"?"],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
+      "versioningTemplate": "docker"
     }
   ]
 }

@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   renovate:
@@ -18,6 +19,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # After a PR closes its merge ref may be gone, so fall back to the base
+          # branch for pull_request events; other events use the selected ref.
+          ref: ${{ github.event.pull_request.base.ref || github.ref }}
 
       - name: Cache Renovate
         uses: actions/cache@v4
@@ -31,8 +36,8 @@ jobs:
         uses: renovatebot/github-action@v48.0.0
         env:
           RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RENOVATE_CONFIG_FILE: renovate.json
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
           LOG_LEVEL: info
-          RENOVATE_PLATFORM_COMMIT: "true"
+          RENOVATE_PLATFORM_COMMIT: "enabled"
         with:
           configurationFile: renovate.json
