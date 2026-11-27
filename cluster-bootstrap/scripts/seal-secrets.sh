@@ -25,8 +25,9 @@ tmp="$(mktemp -d)"
 chmod 700 "${tmp}"
 trap 'rm -rf "${tmp}"' EXIT
 
-# Reads a vault value into a shell variable. Uses ansible-vault view to avoid
-# redaction issues with ansible debug module.
+# Reads a vault value into a shell variable. Uses ansible-vault view to decrypt
+# the file directly (avoids ansible debug's $REDACTED$ redaction of values whose
+# names match sensitive patterns like *token*).
 read_vault() {
   local key="$1" value
   value="$(ansible-vault view "${vault_file}" --vault-password-file="${vault_pass}" 2>/dev/null |

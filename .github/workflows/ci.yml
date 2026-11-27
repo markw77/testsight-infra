@@ -14,8 +14,6 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          # ansible-core 2.22 requires Python >= 3.13 (see ANSIBLE_CORE_VERSION
-          # in cluster-bootstrap/versions.env).
           python-version: "3.13"
 
       - name: Install lint tools
@@ -41,10 +39,12 @@ jobs:
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
 
-      - name: lint
+      - name: pre-commit
         env:
           ANSIBLE_VAULT_PASSWORD_FILE: /tmp/vault-pass
-        run: make lint
+        run: |
+          python -m pip install pre-commit
+          pre-commit run --all-files
 
   gitleaks:
     runs-on: ubuntu-latest
