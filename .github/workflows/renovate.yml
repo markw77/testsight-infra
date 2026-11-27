@@ -41,4 +41,4 @@ jobs:
           RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           LOG_LEVEL: debug
-          RENOVATE_PLATFORM_COMMIT: "enabled"
+          RENOVATE_PLATFORM_COMMIT: "disabled"
