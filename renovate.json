@@ -14,6 +14,7 @@
   "prConcurrentLimit": 10,
   "branchConcurrentLimit": 5,
   "rangeStrategy": "bump",
+  "branchPrefix": "renovate-",
   "packageRules": [
     {
       "description": "Group GitHub Actions updates",
