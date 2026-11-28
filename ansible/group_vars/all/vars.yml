@@ -23,7 +23,7 @@ pgadmin_network_cidr: 172.30.0.0/24
 
 # Images the host stack runs. Single source so the compose template, the probe
 # in verify.yml, and documentation all agree.
-postgres_image: postgres:16-alpine
-pgadmin_image: dpage/pgadmin4:8.14
+postgres_image: postgres:19-alpine
+pgadmin_image: dpage/pgadmin4:9.19
 
 kubeconfig_path: "{{ lookup('env', 'HOME') }}/.kube/testsight-dedicated.yaml"
